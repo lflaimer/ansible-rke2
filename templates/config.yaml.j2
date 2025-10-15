@@ -1,0 +1,13 @@
+# Managed by Ansible (rke2 role)
+write-kubeconfig-mode: "0644"
+node-name: "{{ inventory_hostname }}"
+
+{% set join_url = rke2_server_url | default(hostvars['localhost'].rke2_server_url_shared | default('')) %}
+{% set join_tok = rke2_token       | default(hostvars['localhost'].rke2_token_shared       | default('')) %}
+
+{% if rke2_node_type in ['server','agent'] and rke2_node_type != 'head' %}
+server: {{ join_url }}
+token: {{ join_tok }}
+{% endif %}
+
+# ... add additional cluster settings (tls-san, cidrs, etc.) here ...

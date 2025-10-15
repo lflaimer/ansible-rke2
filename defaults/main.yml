@@ -1,0 +1,22 @@
+---
+rke2_node_type: auto
+rke2_group_head: rke2_head
+rke2_group_servers: rke2_servers
+rke2_group_agents: rke2_agents
+
+rke2_channel: stable
+rke2_version: ""
+rke2_install_sh_sha256: ""
+
+rke2_server_url: ""
+rke2_token: ""
+
+rke2_config_owner: root
+rke2_config_group: root
+
+rke2_comment_swap_lines: false
+rke2_api_wait_timeout: 600
+rke2_api_wait_delay: 5
+
+rke2_advertise_address: "{{ ansible_default_ipv4.address }}"
+rke2_listen_port: 9345

@@ -1,0 +1,18 @@
+---
+- name: restart rke2 head
+  ansible.builtin.systemd:
+    name: rke2-server.service
+    state: restarted
+  listen: "restart rke2 head"
+
+- name: restart rke2 server
+  ansible.builtin.systemd:
+    name: rke2-server.service
+    state: restarted
+  listen: "restart rke2 server"
+
+- name: restart rke2 agent
+  ansible.builtin.systemd:
+    name: rke2-agent.service
+    state: restarted
+  listen: "restart rke2 agent"

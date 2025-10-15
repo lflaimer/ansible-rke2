@@ -1,0 +1,165 @@
+---
+# SWAP OFF (now + persist)
+- name: Disable swap immediately if any swap is active
+  ansible.builtin.command: swapoff -a
+  when: (ansible_swaptotal_mb | default(0) | int) > 0
+  changed_when: (ansible_swaptotal_mb | default(0) | int) > 0
+  tags: [swap]
+
+- name: Ensure swap entries are absent in /etc/fstab (persistent)
+  ansible.posix.mount:
+    name: swap
+    fstype: swap
+    state: absent
+  tags: [swap]
+
+- name: Reduce swappiness
+  ansible.builtin.sysctl:
+    name: vm.swappiness
+    value: "0"
+    state: present
+    sysctl_set: true
+    reload: true
+  tags: [swap]
+
+# CONFIG
+- name: Create RKE2 configuration directory
+  ansible.builtin.file:
+    path: /etc/rancher/rke2
+    state: directory
+    owner: "{{ rke2_config_owner }}"
+    group: "{{ rke2_config_group }}"
+    mode: "0750"
+  tags: [rke2]
+
+- name: Template RKE2 config.yaml
+  ansible.builtin.template:
+    src: config.yaml.j2
+    dest: /etc/rancher/rke2/config.yaml
+    owner: "{{ rke2_config_owner }}"
+    group: "{{ rke2_config_group }}"
+    mode: "0640"
+  notify: "restart rke2 {{ rke2_node_type | default('server') }}"
+  tags: [rke2]
+
+# Installer
+- name: Download RKE2 installation script
+  ansible.builtin.get_url:
+    url: https://get.rke2.io
+    dest: /usr/local/sbin/rke2-install.sh
+    mode: "0750"
+    # checksum: "sha256:{{ rke2_install_sh_sha256 | default(omit) }}"
+  tags: [rke2]
+
+# Decide mode if auto
+- name: Determine RKE2 node type if auto
+  ansible.builtin.set_fact:
+    rke2_node_type: >-
+      {{
+        'head' if (rke2_node_type == 'auto' and inventory_hostname in (groups.get(rke2_group_head, []) | default([])))
+        else 'server' if (rke2_node_type == 'auto' and inventory_hostname in (groups.get(rke2_group_servers, []) | default([])))
+        else 'agent' if (rke2_node_type == 'auto')
+        else rke2_node_type
+      }}
+
+# HEAD
+- name: Install & start RKE2 on HEAD
+  when: rke2_node_type == 'head'
+  block:
+    - name: Install RKE2 server
+      ansible.builtin.command: /usr/bin/env bash /usr/local/sbin/rke2-install.sh
+      environment:
+        INSTALL_RKE2_CHANNEL: "{{ rke2_channel }}"
+        INSTALL_RKE2_VERSION: "{{ rke2_version }}"
+        INSTALL_RKE2_TYPE: "server"
+      args:
+        creates: /usr/local/bin/rke2
+
+    - name: systemd daemon-reload
+      ansible.builtin.systemd:
+        daemon_reload: true
+
+    - name: Enable/start rke2-server
+      ansible.builtin.systemd:
+        name: rke2-server.service
+        enabled: true
+        state: started
+
+    - name: Wait for head supervisor API (9345)
+      ansible.builtin.wait_for:
+        host: 127.0.0.1
+        port: 9345
+        timeout: "{{ rke2_api_wait_timeout }}"
+
+    # Publish URL+token if not predefined
+    - name: Slurp node-token (if token not predefined)
+      ansible.builtin.slurp:
+        path: /var/lib/rancher/rke2/server/node-token
+      register: _head_token_raw
+      when: (rke2_token | default('')) | length == 0
+
+    - name: Publish URL+token to localhost (cacheable)
+      ansible.builtin.set_fact:
+        rke2_server_url_shared: "{{ rke2_server_url | default('https://' ~ ansible_default_ipv4.address ~ ':' ~ rke2_listen_port|string) }}"
+        rke2_token_shared: "{{ rke2_token | default((_head_token_raw.content | b64decode | trim)) }}"
+        cacheable: true
+      delegate_to: localhost
+      run_once: true
+
+# SERVERS
+- name: Install & start RKE2 on SERVERS
+  when: rke2_node_type == 'server'
+  block:
+    - name: Wait for head supervisor API (9345)
+      ansible.builtin.wait_for:
+        host: "{{ (rke2_server_url | default(hostvars['localhost'].rke2_server_url_shared)) | urlsplit('hostname') }}"
+        port: 9345
+        timeout: "{{ rke2_api_wait_timeout }}"
+
+    - name: Install RKE2 server
+      ansible.builtin.command: /usr/bin/env bash /usr/local/sbin/rke2-install.sh
+      environment:
+        INSTALL_RKE2_CHANNEL: "{{ rke2_channel }}"
+        INSTALL_RKE2_VERSION: "{{ rke2_version }}"
+        INSTALL_RKE2_TYPE: "server"
+      args:
+        creates: /usr/local/bin/rke2
+
+    - name: systemd daemon-reload
+      ansible.builtin.systemd:
+        daemon_reload: true
+
+    - name: Enable/start rke2-server
+      ansible.builtin.systemd:
+        name: rke2-server.service
+        enabled: true
+        state: started
+
+# AGENTS
+- name: Install & start RKE2 on AGENTS
+  when: rke2_node_type == 'agent'
+  block:
+    - name: Wait for head supervisor API (9345)
+      ansible.builtin.wait_for:
+        host: "{{ (rke2_server_url | default(hostvars['localhost'].rke2_server_url_shared)) | urlsplit('hostname') }}"
+        port: 9345
+        timeout: "{{ rke2_api_wait_timeout }}"
+
+    - name: Install RKE2 agent
+      ansible.builtin.command: /usr/bin/env bash /usr/local/sbin/rke2-install.sh
+      environment:
+        INSTALL_RKE2_CHANNEL: "{{ rke2_channel }}"
+        INSTALL_RKE2_VERSION: "{{ rke2_version }}"
+        INSTALL_RKE2_TYPE: "agent"
+      args:
+        creates: /usr/local/bin/rke2
+
+    - name: systemd daemon-reload
+      ansible.builtin.systemd:
+        daemon_reload: true
+
+    - name: Enable/start rke2-agent
+      ansible.builtin.systemd:
+        name: rke2-agent.service
+        enabled: true
+        state: started
