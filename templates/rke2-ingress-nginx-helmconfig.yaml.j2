@@ -1,0 +1,35 @@
+apiVersion: helm.cattle.io/v1
+kind: HelmChartConfig
+metadata:
+  name: rke2-ingress-nginx
+  namespace: kube-system
+spec:
+  valuesContent: |-
+    controller:
+      kind: DaemonSet
+      hostNetwork: {{ rke2_ingress_hostNetwork | bool }}
+      dnsPolicy: {{ rke2_ingress_dnsPolicy }}
+      ingressClassResource:
+        name: {{ rke2_ingress_class_name }}
+        controllerValue: "{{ rke2_ingress_controller_value }}"
+        default: false
+      ingressClassByName: true
+      watchIngressWithoutClass: {{ rke2_ingress_watch_without_class | bool }}
+      nodeSelector:
+{% for k, v in rke2_ingress_node_selector.items() %}
+        {{ k }}: "{{ v }}"
+{% endfor %}
+      tolerations:
+{% if rke2_ingress_tolerations|length == 0 %}
+        []
+{% else %}
+{% for t in rke2_ingress_tolerations %}
+        - {{ t | to_nice_yaml(indent=10) | trim }}
+{% endfor %}
+{% endif %}
+      config:
+{% for k, v in rke2_ingress_nginx_config.items() %}
+        {{ k }}: {{ v | tojson }}
+{% endfor %}
+      service:
+        enabled: {{ rke2_ingress_service_enabled | bool }}

@@ -1,4 +1,3 @@
-# Managed by Ansible (rke2 role)
 write-kubeconfig-mode: "0644"
 node-name: "{{ inventory_hostname }}"
 
@@ -10,4 +9,14 @@ server: {{ join_url }}
 token: {{ join_tok }}
 {% endif %}
 
-# ... add additional cluster settings (tls-san, cidrs, etc.) here ...
+{% if rke2_node_type in ['head','server'] and rke2_taint_servers_no_workloads %}
+node-taint:
+{% for t in rke2_server_taints %}  - "{{ t }}"
+{% endfor %}
+{% endif %}
+
+{% if rke2_node_type == 'agent' and (rke2_agent_labels|length > 0) %}
+node-label:
+{% for k,v in rke2_agent_labels.items() %}  - "{{ k }}={{ v }}"
+{% endfor %}
+{% endif %}

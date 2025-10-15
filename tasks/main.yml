@@ -1,5 +1,4 @@
 ---
-# SWAP OFF (now + persist)
 - name: Disable swap immediately if any swap is active
   ansible.builtin.command: swapoff -a
   when: (ansible_swaptotal_mb | default(0) | int) > 0
@@ -22,7 +21,6 @@
     reload: true
   tags: [swap]
 
-# CONFIG
 - name: Create RKE2 configuration directory
   ansible.builtin.file:
     path: /etc/rancher/rke2
@@ -42,16 +40,49 @@
   notify: "restart rke2 {{ rke2_node_type | default('server') }}"
   tags: [rke2]
 
-# Installer
 - name: Download RKE2 installation script
   ansible.builtin.get_url:
     url: https://get.rke2.io
     dest: /usr/local/sbin/rke2-install.sh
     mode: "0750"
-    # checksum: "sha256:{{ rke2_install_sh_sha256 | default(omit) }}"
   tags: [rke2]
 
-# Decide mode if auto
+- name: Ensure RKE2 server manifests dir exists
+  ansible.builtin.file:
+    path: /var/lib/rancher/rke2/server/manifests
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  when: rke2_node_type in ['head','server'] and rke2_manage_ingress
+  tags: [rke2]
+
+- name: Render IngressClass manifest
+  ansible.builtin.copy:
+    dest: /var/lib/rancher/rke2/server/manifests/ingressclass-{{ rke2_ingress_class_name }}.yaml
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      apiVersion: networking.k8s.io/v1
+      kind: IngressClass
+      metadata:
+        name: {{ rke2_ingress_class_name }}
+      spec:
+        controller: {{ rke2_ingress_controller_value }}
+  when: rke2_node_type in ['head','server'] and rke2_manage_ingress
+  tags: [nginx]
+
+- name: Render HelmChartConfig for rke2-ingress-nginx
+  ansible.builtin.template:
+    src: rke2-ingress-nginx-helmconfig.yaml.j2
+    dest: /var/lib/rancher/rke2/server/manifests/rke2-ingress-nginx-config.yaml
+    owner: root
+    group: root
+    mode: "0644"
+  when: rke2_node_type in ['head','server'] and rke2_manage_ingress
+  tags: [nginx]
+
 - name: Determine RKE2 node type if auto
   ansible.builtin.set_fact:
     rke2_node_type: >-
@@ -62,7 +93,6 @@
         else rke2_node_type
       }}
 
-# HEAD
 - name: Install & start RKE2 on HEAD
   when: rke2_node_type == 'head'
   block:
@@ -91,8 +121,7 @@
         port: 9345
         timeout: "{{ rke2_api_wait_timeout }}"
 
-    # Publish URL+token if not predefined
-    - name: Slurp node-token (if token not predefined)
+    - name: Slurp node-token
       ansible.builtin.slurp:
         path: /var/lib/rancher/rke2/server/node-token
       register: _head_token_raw
@@ -106,7 +135,6 @@
       delegate_to: localhost
       run_once: true
 
-# SERVERS
 - name: Install & start RKE2 on SERVERS
   when: rke2_node_type == 'server'
   block:
@@ -135,7 +163,6 @@
         enabled: true
         state: started
 
-# AGENTS
 - name: Install & start RKE2 on AGENTS
   when: rke2_node_type == 'agent'
   block:
