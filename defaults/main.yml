@@ -1,4 +1,5 @@
 ---
+rke2_node_type: server
 rke2_channel: stable
 rke2_version: ""
 rke2_install_sh_sha256: ""
