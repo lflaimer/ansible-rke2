@@ -1,22 +1,27 @@
+# Managed by Ansible
 write-kubeconfig-mode: "0644"
 node-name: "{{ inventory_hostname }}"
 
-{% set join_url = rke2_server_url | default(hostvars['localhost'].rke2_server_url_shared | default('')) %}
-{% set join_tok = rke2_token       | default(hostvars['localhost'].rke2_token_shared       | default('')) %}
-
-{% if rke2_node_type in ['server','agent'] and rke2_node_type != 'head' %}
-server: {{ join_url }}
-token: {{ join_tok }}
+{% if rke2_node_type != 'head' and rke2_server_url is defined and rke2_server_url|length > 0 %}
+server: "{{ rke2_server_url }}"
 {% endif %}
 
-{% if rke2_node_type in ['head','server'] and rke2_taint_servers_no_workloads %}
+{% if rke2_token_file is defined and rke2_token_file|length > 0 %}
+token-file: "{{ rke2_token_file }}"
+{% elif rke2_token is defined and rke2_token|length > 0 %}
+token: "{{ rke2_token }}"
+{% endif %}
+
+{% if rke2_node_type in ['head','server'] and (rke2_taint_servers_no_workloads | default(true)) %}
 node-taint:
-{% for t in rke2_server_taints %}  - "{{ t }}"
+{% for t in rke2_server_taints | default(['node-role.kubernetes.io/control-plane=true:NoSchedule']) %}
+  - "{{ t }}"
 {% endfor %}
 {% endif %}
 
-{% if rke2_node_type == 'agent' and (rke2_agent_labels|length > 0) %}
+{% if rke2_node_type == 'agent' and (rke2_agent_labels | default({})) | length > 0 %}
 node-label:
-{% for k,v in rke2_agent_labels.items() %}  - "{{ k }}={{ v }}"
+{% for k, v in rke2_agent_labels.items() %}
+  - "{{ k }}={{ v }}"
 {% endfor %}
 {% endif %}
