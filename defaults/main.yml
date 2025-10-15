@@ -1,8 +1,4 @@
 ---
-rke2_node_type: auto
-rke2_group_head: rke2_head
-rke2_group_servers: rke2_servers
-rke2_group_agents: rke2_agents
 rke2_channel: stable
 rke2_version: ""
 rke2_install_sh_sha256: ""
@@ -20,3 +16,19 @@ rke2_server_taints:
   - "node-role.kubernetes.io/control-plane=true:NoSchedule"
 rke2_agent_labels:
   node-role.kubernetes.io/worker: "true"
+rke2_manage_ingress: true
+rke2_ingress_hostNetwork: true
+rke2_ingress_dnsPolicy: ClusterFirstWithHostNet
+rke2_ingress_class_name: public
+rke2_ingress_controller_value: "k8s.io/ingress-nginx"
+rke2_ingress_watch_without_class: false
+rke2_ingress_node_selector:
+  node-role.kubernetes.io/worker: "true"
+rke2_ingress_tolerations: []
+rke2_ingress_service_enabled: false
+rke2_ingress_nginx_config:
+  use-forwarded-headers: "true"
+  compute-full-forwarded-for: "true"
+  real-ip-header: "CF-Connecting-IP"
+  # set-real-ip-from: | 
+rke2_ingress_namespace: ingress-nginx
