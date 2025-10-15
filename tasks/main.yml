@@ -111,19 +111,38 @@
         port: 9345
         timeout: "{{ rke2_api_wait_timeout }}"
 
-    - name: Slurp node-token
-      ansible.builtin.slurp:
-        path: /var/lib/rancher/rke2/server/node-token
-      register: _head_token_raw
-      when: (rke2_token | default('')) | length == 0
+- name: Slurp node-token (only if not predefined)
+  become: true
+  ansible.builtin.slurp:
+    path: /var/lib/rancher/rke2/server/node-token
+  register: _head_token_raw
+  when:
+    - rke2_node_type == 'head'
+    - (rke2_token | default('')) | length == 0
 
-    - name: Publish URL+token to localhost (cacheable)
-      ansible.builtin.set_fact:
-        rke2_server_url_shared: "{{ rke2_server_url | default('https://' ~ ansible_default_ipv4.address ~ ':' ~ rke2_listen_port|string) }}"
-        rke2_token_shared: "{{ rke2_token | default((_head_token_raw.content | b64decode | trim)) }}"
-        cacheable: true
-      delegate_to: localhost
-      run_once: true
+- name: Publish URL+token (predefined)
+  ansible.builtin.set_fact:
+    rke2_server_url_shared: "{{ rke2_server_url | default('https://' ~ ansible_default_ipv4.address ~ ':' ~ rke2_listen_port|string) }}"
+    rke2_token_shared: "{{ rke2_token }}"
+    cacheable: true
+  delegate_to: localhost
+  run_once: true
+  when:
+    - rke2_node_type == 'head'
+    - (rke2_token | default('')) | length > 0
+
+- name: Publish URL+token (slurped)
+  ansible.builtin.set_fact:
+    rke2_server_url_shared: "{{ rke2_server_url | default('https://' ~ ansible_default_ipv4.address ~ ':' ~ rke2_listen_port|string) }}"
+    rke2_token_shared: "{{ (_head_token_raw.content | b64decode | trim) }}"
+    cacheable: true
+  delegate_to: localhost
+  run_once: true
+  when:
+    - rke2_node_type == 'head'
+    - (rke2_token | default('')) | length == 0
+    - _head_token_raw is defined
+    - _head_token_raw.content is defined
 
 - name: Install & start RKE2 on SERVERS
   when: rke2_node_type == 'server'
