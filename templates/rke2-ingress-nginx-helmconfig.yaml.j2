@@ -18,26 +18,26 @@ spec:
 
       watchIngressWithoutClass: {{ (rke2_ingress_watch_without_class | default(false)) | bool }}
 
+      # Run on ALL linux nodes (servers + agents). Avoid worker=true equality.
       nodeSelector:
-{% for k, v in (rke2_ingress_node_selector | default({'node-role.kubernetes.io/worker':'true'})).items() %}
+{% for k, v in (rke2_ingress_node_selector | default({'kubernetes.io/os':'linux'})).items() %}
         {{ k }}: "{{ v }}"
 {% endfor %}
 
+      # Tolerate control-plane taints so it schedules on servers, too.
       tolerations:
-{% if (rke2_ingress_tolerations | default([])) | length == 0 %}
-        []
-{% else %}
-{% for t in rke2_ingress_tolerations %}
+{% set user_tols = (rke2_ingress_tolerations | default([])) %}
+{% if user_tols | length > 0 %}
+{%   for t in user_tols %}
         - {{ t | to_nice_yaml(indent=10) | trim }}
-{% endfor %}
+{%   endfor %}
+{% else %}
+        # (none provided by user)
 {% endif %}
-
-      # NGINX controller config (e.g., Cloudflare client IP handling)
-      config:
-{% for k, v in (rke2_ingress_nginx_config | default({'use-forwarded-headers':'true','compute-full-forwarded-for':'true','real-ip-header':'CF-Connecting-IP'})).items() %}
-        {{ k }}: {{ v | tojson }}
-{% endfor %}
-
-      # With hostNetwork=true we don't need a Service
-      service:
-        enabled: {{ (rke2_ingress_service_enabled | default(false)) | bool }}
+        # ensure control-plane taints are tolerated
+        - key: "node-role.kubernetes.io/control-plane"
+          operator: "Exists"
+          effect: "NoSchedule"
+        - key: "node-role.kubernetes.io/master"
+          operator: "Exists"
+          effect: "NoSchedule"
