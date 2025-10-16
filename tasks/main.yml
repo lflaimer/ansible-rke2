@@ -116,7 +116,7 @@
   block:
     - name: Wait for head supervisor API (9345)
       ansible.builtin.wait_for:
-        host: "{{ (rke2_server_url | default(hostvars['localhost'].rke2_server_url_shared)) | urlsplit('hostname') }}"
+        host: "{{ (rke2_server_ip }}"
         port: 9345
         timeout: "{{ rke2_api_wait_timeout }}"
 
@@ -144,7 +144,7 @@
   block:
     - name: Wait for head supervisor API (9345)
       ansible.builtin.wait_for:
-        host: "{{ (rke2_server_url | default(hostvars['localhost'].rke2_server_url_shared)) | urlsplit('hostname') }}"
+        host: "{{ (rke2_server_ip }}"
         port: 9345
         timeout: "{{ rke2_api_wait_timeout }}"
 
