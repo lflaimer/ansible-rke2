@@ -25,7 +25,7 @@ rke2_ingress_class_name: nginx
 rke2_ingress_controller_value: "k8s.io/ingress-nginx"
 rke2_ingress_watch_without_class: false
 rke2_ingress_node_selector:
-  node-role.kubernetes.io/worker: "true"
+  kubernetes.io/os: "linux"
 rke2_ingress_tolerations: []
 rke2_ingress_service_enabled: false
 rke2_ingress_nginx_config:
