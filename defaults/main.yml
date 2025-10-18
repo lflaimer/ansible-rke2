@@ -21,7 +21,7 @@ rke2_agent_labels:
 rke2_manage_ingress: true
 rke2_ingress_hostNetwork: true
 rke2_ingress_dnsPolicy: ClusterFirstWithHostNet
-rke2_ingress_class_name: public
+rke2_ingress_class_name: nginx
 rke2_ingress_controller_value: "k8s.io/ingress-nginx"
 rke2_ingress_watch_without_class: false
 rke2_ingress_node_selector:
