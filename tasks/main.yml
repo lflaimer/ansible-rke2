@@ -167,11 +167,6 @@
         enabled: true
         state: started
 
-- name: Determine head host
-  set_fact:
-    head_host: "{{ groups['k8s_control_plane'][0] | default(groups['all'] | first) }}"
-  run_once: true
-
 - name: Install Helm via apt repo (Ubuntu/Debian)
   block:
     - apt:
@@ -189,6 +184,6 @@
     - apt:
         name: helm
         state: present
-  delegate_to: "{{ head_host }}"
+  when: rke2_node_type == 'head'
   become: true
   run_once: true
