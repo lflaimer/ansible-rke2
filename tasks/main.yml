@@ -172,30 +172,23 @@
     head_host: "{{ groups['k8s_control_plane'][0] | default(groups['all'] | first) }}"
   run_once: true
 
-- name: Ensure Helm is installed
-  ansible.builtin.get_url:
-    url: https://get.helm.sh/helm-v3.15.4-linux-amd64.tar.gz
-    dest: /tmp/helm.tar.gz
-    mode: '0644'
-  become: true
+- name: Install Helm via apt repo (Ubuntu/Debian)
+  block:
+    - apt:
+        name: apt-transport-https
+        state: present
+        update_cache: yes
+    - shell: curl -fsSL https://baltocdn.com/helm/signing.asc | gpg --dearmor -o /usr/share/keyrings/helm.gpg
+      args: { creates: /usr/share/keyrings/helm.gpg }
+    - copy:
+        content: "deb [signed-by=/usr/share/keyrings/helm.gpg] https://baltocdn.com/helm/stable/debian/ all main\n"
+        dest: /etc/apt/sources.list.d/helm-stable-debian.list
+        mode: "0644"
+    - apt:
+        update_cache: yes
+    - apt:
+        name: helm
+        state: present
   delegate_to: "{{ head_host }}"
-  run_once: true
-
-
-- name: Extract helm binary
-  ansible.builtin.unarchive:
-    src: /tmp/helm.tar.gz
-    dest: /tmp
-    remote_src: true
   become: true
-  delegate_to: "{{ head_host }}"
-  run_once: true
-
-- name: Move helm binary into PATH
-  ansible.builtin.copy:
-    src: /tmp/linux-amd64/helm
-    dest: /usr/local/bin/helm
-    mode: '0755'
-  become: true
-  delegate_to: "{{ head_host }}"
   run_once: true
