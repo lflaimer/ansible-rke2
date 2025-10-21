@@ -167,12 +167,20 @@
         enabled: true
         state: started
 
+- name: Determine head host
+  set_fact:
+    head_host: "{{ groups['k8s_control_plane'][0] | default(groups['all'] | first) }}"
+  run_once: true
+
 - name: Ensure Helm is installed
   ansible.builtin.get_url:
     url: https://get.helm.sh/helm-v3.15.4-linux-amd64.tar.gz
     dest: /tmp/helm.tar.gz
     mode: '0644'
   become: true
+  delegate_to: "{{ head_host }}"
+  run_once: true
+
 
 - name: Extract helm binary
   ansible.builtin.unarchive:
@@ -180,6 +188,8 @@
     dest: /tmp
     remote_src: true
   become: true
+  delegate_to: "{{ head_host }}"
+  run_once: true
 
 - name: Move helm binary into PATH
   ansible.builtin.copy:
@@ -187,3 +197,5 @@
     dest: /usr/local/bin/helm
     mode: '0755'
   become: true
+  delegate_to: "{{ head_host }}"
+  run_once: true
