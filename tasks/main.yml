@@ -166,3 +166,24 @@
         name: rke2-agent.service
         enabled: true
         state: started
+
+- name: Ensure Helm is installed
+  ansible.builtin.get_url:
+    url: https://get.helm.sh/helm-v3.15.4-linux-amd64.tar.gz
+    dest: /tmp/helm.tar.gz
+    mode: '0644'
+  become: true
+
+- name: Extract helm binary
+  ansible.builtin.unarchive:
+    src: /tmp/helm.tar.gz
+    dest: /tmp
+    remote_src: true
+  become: true
+
+- name: Move helm binary into PATH
+  ansible.builtin.copy:
+    src: /tmp/linux-amd64/helm
+    dest: /usr/local/bin/helm
+    mode: '0755'
+  become: true
