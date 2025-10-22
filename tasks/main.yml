@@ -173,10 +173,10 @@
         name: apt-transport-https
         state: present
         update_cache: yes
-    - shell: curl -fsSL https://baltocdn.com/helm/signing.asc | gpg --dearmor -o /usr/share/keyrings/helm.gpg
+    - shell: curl -fsSL https://packages.buildkite.com/helm-linux/helm-debian/gpgkey | gpg --dearmor -o /usr/share/keyrings/helm.gpg
       args: { creates: /usr/share/keyrings/helm.gpg }
     - copy:
-        content: "deb [signed-by=/usr/share/keyrings/helm.gpg] https://baltocdn.com/helm/stable/debian/ all main\n"
+        content: "deb [signed-by=/usr/share/keyrings/helm.gpg] https://packages.buildkite.com/helm-linux/helm-debian/any/ any main\n"
         dest: /etc/apt/sources.list.d/helm-stable-debian.list
         mode: "0644"
     - apt:
